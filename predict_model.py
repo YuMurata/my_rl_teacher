@@ -56,7 +56,12 @@ class PredictModel():
             with tf.variable_scope(scope):
                 output_layer = tf.layers.dense(hidden_layer, units=1, activation=None, name='predict_reward')
 
-        return output_layer
+        batchsize = tf.shape(obs_placeholder)[0]
+        segment_length = tf.shape(obs_placeholder)[1]
+        predict_reward = tf.reshape(output_layer, (batchsize, segment_length))
+        return predict_reward
+
+
 
     def build_loss_func(self, left_predict_reward, right_predict_reward):
         left_segment_predict_reward = tf.reduce_sum(left_predict_reward, axis=1)
@@ -64,9 +69,10 @@ class PredictModel():
         reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
 
         self.labels = tf.placeholder(dtype=tf.int32, shape=(None,), name="comparison_labels")
-        self.scores = tf.placeholder(dtype=tf.float32, shape=(None,), name="comparison_scores")
-        data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
+        self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
 
+        data_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=reward_logits, labels=self.labels)
+        # data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
         self.loss_op = tf.reduce_mean(data_loss)
 
         self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
@@ -110,13 +116,13 @@ class PredictModel():
         })
         return predict_reward[0]
 
-    def update_model(self,labeled_comparisons):
+    def update_model(self,labeled_comparisons_batch):
     
-        left_obs = np.asarray([comp['left']['observation'] for comp in labeled_comparisons])
-        left_acts = np.asarray([comp['left']['action'] for comp in labeled_comparisons])
-        right_obs = np.asarray([comp['right']['observation'] for comp in labeled_comparisons])
-        right_acts = np.asarray([comp['right']['action'] for comp in labeled_comparisons])
-        labels = np.asarray([comp['label'] for comp in labeled_comparisons])
+        left_obs = np.asarray([comp['left']['observation'] for comp in labeled_comparisons_batch])
+        left_acts = np.asarray([comp['left']['action'] for comp in labeled_comparisons_batch])
+        right_obs = np.asarray([comp['right']['observation'] for comp in labeled_comparisons_batch])
+        right_acts = np.asarray([comp['right']['action'] for comp in labeled_comparisons_batch])
+        labels = np.asarray([comp['label'] for comp in labeled_comparisons_batch])
 
         _, loss = self.sess.run([self.train_op, self.loss_op], feed_dict={
             self.left_obs_placeholder: left_obs,
