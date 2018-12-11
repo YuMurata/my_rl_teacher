@@ -24,6 +24,11 @@ class PredictModel():
         with tf.variable_scope(scope):
             with tf.variable_scope('predict_model'):
                 self.build_model()
+        summary_dir = 'summary\\data_log'
+        if not os.path.exists(summary_dir):
+            os.makedirs(summary_dir)
+        summary_writer = tf.summary.FileWriter(summary_dir)
+        summary_writer.add_graph(self.graph)
 
     @staticmethod
     def swish(input_activation):
