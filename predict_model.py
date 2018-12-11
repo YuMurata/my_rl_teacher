@@ -30,46 +30,42 @@ class PredictModel():
         """Swish activation function. For more info: https://arxiv.org/abs/1710.05941"""
         return tf.multiply(input_activation, tf.nn.sigmoid(input_activation))
 
-    def build_input_layer(self, observation, action, scope):
-        with tf.variable_scope('input_layer'):
-            with tf.variable_scope(scope):   
-                input_layer = tf.concat([observation, action], axis=2)
+    def build_input_layer(self, observation, action):
+        with tf.variable_scope('input_layer'): 
+            input_layer = tf.concat([observation, action], axis=2)
         return input_layer
 
-    def build_hidden_layer(self, input_layer, layer_num, scope):
+    def build_hidden_layer(self, input_layer, layer_num):
         h_size = 64
         with tf.variable_scope('hidden_layer'):
-            with tf.variable_scope(scope):
-                hidden = input_layer
-                for i in range(layer_num):
-                    hidden = tf.layers.dense(hidden, h_size, activation=self.swish, reuse=False,
-                                            name="hidden_{}".format(i),
-                                            kernel_initializer=c_layers.variance_scaling_initializer(
-                                                1.0))
+            hidden = input_layer
+            for i in range(layer_num):
+                hidden = tf.layers.dense(hidden, h_size, activation=self.swish, reuse=False,
+                                        name="hidden_{}".format(i),
+                                        kernel_initializer=c_layers.variance_scaling_initializer(
+                                            1.0))
         return hidden
 
     def build_reward_network(self, obs_placeholder, act_placeholder, scope):
-        input_layer = self.build_input_layer(obs_placeholder, act_placeholder, scope)        
-        hidden_layer = self.build_hidden_layer(input_layer, layer_num=3, scope=scope)
-        
-        with tf.variable_scope('output_layer'):
-            with tf.variable_scope(scope):
-                output_layer = tf.layers.dense(hidden_layer, units=1, activation=None, name='predict_reward')
+        with tf.variable_scope(scope):
+            input_layer = self.build_input_layer(obs_placeholder, act_placeholder)        
+            hidden_layer = self.build_hidden_layer(input_layer, layer_num=3)
+            
+            with tf.variable_scope('output_layer'):
+                    output_layer = tf.layers.dense(hidden_layer, units=1, activation=None)
 
-        batchsize = tf.shape(obs_placeholder)[0]
-        segment_length = tf.shape(obs_placeholder)[1]
-        predict_reward = tf.reshape(output_layer, (batchsize, segment_length))
+            batchsize = tf.shape(obs_placeholder)[0]
+            segment_length = tf.shape(obs_placeholder)[1]
+            predict_reward = tf.reshape(output_layer, (batchsize, segment_length), name='predict_reward')
         return predict_reward
 
 
 
     def build_loss_func(self, left_predict_reward, right_predict_reward):
-        left_segment_predict_reward = tf.reduce_sum(left_predict_reward, axis=1)
-        right_segment_predict_reward = tf.reduce_sum(right_predict_reward, axis=1)
-        reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
-
-        self.labels = tf.placeholder(dtype=tf.int32, shape=(None,), name="comparison_labels")
-        self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
+        with tf.variable_scope('loss_function'):
+            left_segment_predict_reward = tf.reduce_sum(left_predict_reward, axis=1)
+            right_segment_predict_reward = tf.reduce_sum(right_predict_reward, axis=1)
+            reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
 
         data_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=reward_logits, labels=self.labels)
         # data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
@@ -78,26 +74,32 @@ class PredictModel():
         self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
 
     def build_model(self):
+        graph = tf.Graph()
+        with graph.as_default():
+            obs_mean_shape = tuple([1, self.vec_obs_size])
+            act_mean_shape = tuple([1, self.act_size])
 
-        obs_mean_shape = tuple([1, self.vec_obs_size])
-        act_mean_shape = tuple([1, self.act_size])
+            batch_obs_shape = (None, None) + self.obs_shape
+            batch_act_shape = (None, None) + self.act_shape
 
-        batch_obs_shape = (None, None) + self.obs_shape
-        batch_act_shape = (None, None) + self.act_shape
+            with tf.variable_scope('input_creator'):
+                self.left_obs_input_creator = NetworkInputCreator(True, 'left_observation', batch_obs_shape, obs_mean_shape)
+                self.right_obs_input_creator = NetworkInputCreator(True, 'right_observation', batch_obs_shape, obs_mean_shape)
+                self.left_act_input_creator = NetworkInputCreator(True, 'left_action', batch_act_shape, act_mean_shape)
+                self.right_act_input_creator = NetworkInputCreator(True, 'right_action', batch_act_shape, act_mean_shape)
 
-        self.left_obs_input_creator = NetworkInputCreator(True, 'left_observation', batch_obs_shape, obs_mean_shape)
-        self.right_obs_input_creator = NetworkInputCreator(True, 'right_observation', batch_obs_shape, obs_mean_shape)
-        self.left_act_input_creator = NetworkInputCreator(True, 'left_action', batch_act_shape, act_mean_shape)
-        self.right_act_input_creator = NetworkInputCreator(True, 'right_action', batch_act_shape, act_mean_shape)
+            with tf.variable_scope('placeholder'):
+                self.left_obs_placeholder = self.left_obs_input_creator.vector_in
+                self.right_obs_placeholder = self.right_obs_input_creator.vector_in
+                self.left_act_placeholder = self.left_act_input_creator.vector_in
+                self.right_act_placeholder = self.right_act_input_creator.vector_in
 
-        # Set up observation placeholders
-        self.left_obs_placeholder = self.left_obs_input_creator.vector_in
-        self.right_obs_placeholder = self.right_obs_input_creator.vector_in
-        self.left_act_placeholder = self.left_act_input_creator.vector_in
-        self.right_act_placeholder = self.right_act_input_creator.vector_in
-
-        self.left_predict_reward = self.build_reward_network(self.left_obs_placeholder, self.left_act_placeholder, 'left')
-        right_predict_reward = self.build_reward_network(self.right_obs_placeholder, self.right_act_placeholder, 'right')
+            with tf.variable_scope('reward_network'):
+                self.left_predict_reward = self.build_reward_network(self.left_obs_placeholder, self.left_act_placeholder, 'left')
+                right_predict_reward = self.build_reward_network(self.right_obs_placeholder, self.right_act_placeholder, 'right')
+            
+            self.build_loss_func(self.left_predict_reward, right_predict_reward)
+        
         
         self.build_loss_func(self.left_predict_reward, right_predict_reward)
 
