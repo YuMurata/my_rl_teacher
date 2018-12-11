@@ -20,30 +20,24 @@ class RLTeacherTrainer(Trainer):
             batch_size = 64
             mini_batch = np.random.choice(train_list, batch_size, False)
             loss_list[i] = self.predict_model.update_model(mini_batch)
-
+        print(np.mean(loss_list))
         return loss_list
 
     def verify(self, test_list:list)->float:
         test_length = len(test_list)
-        predict_tuple_list = list(zip(test_list, self.predict_model.predict_reward(test_list)))
-
         correct_label_count = 0
 
-        for left_index in range(test_length):
-            left_predict = predict_tuple_list[left_index]
-            for right_index in range(test_length):
-                if left_index == right_index:
-                    continue
+        for test in test_list:
+            # import pdb;pdb.set_trace()
+            left_predict = self.predict_model.predict_reward([test['left']])[0]
+            right_predict = self.predict_model.predict_reward([test['right']])[0]
+            
+            predict_label = 0 if left_predict >= right_predict else 1
 
-                right_predict = predict_tuple_list[right_index]
-                
-                label = label_more_action(left_predict[0], right_predict[0])
-                predict_label = 0 if left_predict[1] >= right_predict[1] else 1
+            if test['label'] == predict_label:
+                correct_label_count += 1
 
-                if label == predict_label:
-                    correct_label_count += 1
-
-        accuracy = correct_label_count / ((test_length - 1)**2)
+        accuracy = correct_label_count / test_length
 
         return accuracy
 
@@ -63,7 +57,8 @@ def main():
 
     sess.run(tf.global_variables_initializer())
     
-    cross_validation.cross_validation()
+    loss, accuracy = cross_validation.cross_validation()
+    pprint(accuracy)
 
     # comparison_collector = HumanComparisonCollector()
 
