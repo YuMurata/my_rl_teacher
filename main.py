@@ -5,7 +5,7 @@ from predict_model import PredictModel
 from comparison_collectors import HumanComparisonCollector
 from random_info_maker import make_random_info_list
 from comparison_maker import make_comparison_list
-from labeler import label_more_action
+from scorer import score_obs
 from my_deep_learning.verify.cross_validation_maker import CrossValidationMaker, Trainer
 from pprint import pprint
 
@@ -32,9 +32,10 @@ class RLTeacherTrainer(Trainer):
             left_predict = self.predict_model.predict_reward([test['left']])[0]
             right_predict = self.predict_model.predict_reward([test['right']])[0]
             
-            predict_label = 0 if left_predict >= right_predict else 1
+            predict_left_better = left_predict >= right_predict
+            truth_left_better = test['score'][0] >= test['score'][1]
 
-            if test['label'] == predict_label:
+            if truth_left_better == predict_left_better:
                 correct_label_count += 1
 
         accuracy = correct_label_count / test_length
@@ -47,20 +48,15 @@ def main():
     act_size=1
     stack_num = 1
     info_list = make_random_info_list(1000, vec_obs_size, act_size, stack_num)
-    comparison_list = make_comparison_list(1000, info_list, label_more_action)
+    comparison_list = make_comparison_list(1000, info_list, score_obs)
 
-    sess = tf.Session()
-    predict_model = PredictModel(sess, vec_obs_size, act_size, stack_num, scope='', layer_num=3)
+    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3)
     trainer = RLTeacherTrainer(1000, predict_model)
-
     cross_validation = CrossValidationMaker(10, comparison_list, trainer)
-
-    sess.run(tf.global_variables_initializer())
     
+    # tf.Session(graph=predict_model.graph).run(tf.global_variables_initializer())
     loss, accuracy = cross_validation.cross_validation()
     pprint(accuracy)
-
-    # comparison_collector = HumanComparisonCollector()
 
 
 if __name__ =='__main__':

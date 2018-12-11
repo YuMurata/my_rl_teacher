@@ -3,17 +3,16 @@ import tensorflow.contrib.layers as c_layers
 import numpy as np
 from collections import deque
 
-from mlagents.trainers.network_input import NetworkInputCreator
+from my_deep_learning.model.network_input import NetworkInputCreator
 from mlagents.trainers.ppo.rl_teacher.nn import FullyConnectedMLP
 
-
+import os
 
 class PredictModel():
     """Predictor that trains a model to predict how much reward is contained in a trajectory segment"""
 
-    def __init__(self,sess:tf.Session, vec_obs_size:int, act_size:int,stack_num:int, scope:str, layer_num:int):
+    def __init__(self, vec_obs_size:int, act_size:int,stack_num:int, scope:str, layer_num:int):
         # Build and initialize our predictor model
-        self.sess = sess
 
         self.act_size = act_size
         self.vec_obs_size = vec_obs_size
@@ -22,6 +21,10 @@ class PredictModel():
         self.act_shape = (self.act_size,)
         
         self.graph = self.build_model()
+
+        self.sess = tf.Session(graph=self.graph)
+        self.sess.run(tf.global_variables_initializer())
+
 
         summary_dir = 'summary\\data_log'
         if not os.path.exists(summary_dir):
@@ -103,6 +106,8 @@ class PredictModel():
                 right_predict_reward = self.build_reward_network(self.right_obs_placeholder, self.right_act_placeholder, 'right')
             
             self.build_loss_func(self.left_predict_reward, right_predict_reward)
+                    
+        return graph
 
     def increment_step(self):
         self.sess.run(self.left_obs_input_creator.increment_step)
@@ -132,7 +137,7 @@ class PredictModel():
             self.left_act_placeholder: left_acts,
             self.right_obs_placeholder: right_obs,
             self.right_act_placeholder: right_acts,
-            self.labels: labels,
+            self.scores: scores
         })
-    
+
         return loss
