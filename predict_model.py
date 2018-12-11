@@ -21,9 +21,8 @@ class PredictModel():
         self.obs_shape = (self.vec_obs_size,)
         self.act_shape = (self.act_size,)
         
-        with tf.variable_scope(scope):
-            with tf.variable_scope('predict_model'):
-                self.build_model()
+        self.graph = self.build_model()
+
         summary_dir = 'summary\\data_log'
         if not os.path.exists(summary_dir):
             os.makedirs(summary_dir)
@@ -104,9 +103,6 @@ class PredictModel():
                 right_predict_reward = self.build_reward_network(self.right_obs_placeholder, self.right_act_placeholder, 'right')
             
             self.build_loss_func(self.left_predict_reward, right_predict_reward)
-        
-        
-        self.build_loss_func(self.left_predict_reward, right_predict_reward)
 
     def increment_step(self):
         self.sess.run(self.left_obs_input_creator.increment_step)
@@ -116,7 +112,7 @@ class PredictModel():
 
     def predict_reward(self, segment_list):
         """Predict the reward for each step in a given path"""
-     
+        
         predict_reward = self.sess.run(self.left_predict_reward, feed_dict={
             self.left_obs_placeholder: np.asarray([segment['observation'] for segment in segment_list]),
             self.left_act_placeholder: np.asarray([segment['action'] for segment in segment_list]),
@@ -129,7 +125,7 @@ class PredictModel():
         left_acts = np.asarray([comp['left']['action'] for comp in labeled_comparisons_batch])
         right_obs = np.asarray([comp['right']['observation'] for comp in labeled_comparisons_batch])
         right_acts = np.asarray([comp['right']['action'] for comp in labeled_comparisons_batch])
-        labels = np.asarray([comp['label'] for comp in labeled_comparisons_batch])
+        scores = np.asarray([comp['score'] for comp in labeled_comparisons_batch])
 
         _, loss = self.sess.run([self.train_op, self.loss_op], feed_dict={
             self.left_obs_placeholder: left_obs,
