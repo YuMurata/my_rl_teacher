@@ -72,11 +72,11 @@ class PredictModel():
             right_segment_predict_reward = tf.reduce_sum(right_predict_reward, axis=1)
             reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
 
-        data_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=reward_logits, labels=self.labels)
-        # data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
-        self.loss_op = tf.reduce_mean(data_loss)
+            self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
+            data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.scores)
+            self.loss_op = tf.reduce_mean(data_loss)
 
-        self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
+            self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
 
     def build_model(self):
         graph = tf.Graph()
