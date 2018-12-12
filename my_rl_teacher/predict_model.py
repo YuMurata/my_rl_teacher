@@ -10,7 +10,7 @@ import os
 class PredictModel():
     """Predictor that trains a model to predict how much reward is contained in a trajectory segment"""
 
-    def __init__(self, vec_obs_size:int, act_size:int,stack_num:int, scope:str, layer_num:int, summary_dir='summary/predict_model'):
+    def __init__(self, vec_obs_size:int, act_size:int,stack_num:int, scope:str, layer_num:int, use_score:bool, summary_dir='summary/predict_model'):
         # Build and initialize our predictor model
 
         self.act_size = act_size
@@ -18,7 +18,7 @@ class PredictModel():
         self.layer_num = layer_num
         self.obs_shape = (self.vec_obs_size,)
         self.act_shape = (self.act_size,)
-        
+        self.use_score = use_score
         self.build_model()
         self.initialize_variable()
 
@@ -58,20 +58,24 @@ class PredictModel():
             predict_reward = tf.reshape(output_layer, (batchsize, segment_length), name='predict_reward')
         return predict_reward
 
-
-
     def build_loss_func(self, left_predict_reward, right_predict_reward):
         with tf.variable_scope('loss_function'):
             left_segment_predict_reward = tf.reduce_sum(left_predict_reward, axis=1)
             right_segment_predict_reward = tf.reduce_sum(right_predict_reward, axis=1)
             reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
 
-            self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
-            self.labels = tf.nn.softmax(self.scores, name='softmax_scores')
-            data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
+            if self.use_score:
+                self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
+                self.labels = tf.nn.softmax(self.scores, name='softmax_scores')
+                data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
+            else:
+                self.labels = tf.placeholder(dtype=tf.int32, shape=(None,), name="comparison_labels")
+                data_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=reward_logits, labels=self.labels)
+
             self.loss_op = tf.reduce_mean(data_loss)
             self.loss_summary = tf.summary.scalar('loss', self.loss_op)
             self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
+            
 
     def build_model(self):
         self.graph = tf.Graph()
@@ -118,15 +122,26 @@ class PredictModel():
         left_acts = np.asarray([comp['left']['action'] for comp in labeled_comparisons_batch])
         right_obs = np.asarray([comp['right']['observation'] for comp in labeled_comparisons_batch])
         right_acts = np.asarray([comp['right']['action'] for comp in labeled_comparisons_batch])
-        scores = np.asarray([comp['score'] for comp in labeled_comparisons_batch])
 
-        _, loss, summary = self.sess.run([self.train_op, self.loss_op, self.loss_summary], feed_dict={
-            self.left_obs_placeholder: left_obs,
-            self.left_act_placeholder: left_acts,
-            self.right_obs_placeholder: right_obs,
-            self.right_act_placeholder: right_acts,
-            self.scores: scores
-        })
+        if self.use_score:
+            scores = np.asarray([comp['score'] for comp in labeled_comparisons_batch])
+            feed_dict={
+                 self.left_obs_placeholder: left_obs,
+                self.left_act_placeholder: left_acts,
+                self.right_obs_placeholder: right_obs,
+                self.right_act_placeholder: right_acts,
+                self.scores: scores}
+            
+        else:
+            labels = np.asarray([comp['label'] for comp in labeled_comparisons_batch])
+            feed_dict={
+                 self.left_obs_placeholder: left_obs,
+                self.left_act_placeholder: left_acts,
+                self.right_obs_placeholder: right_obs,
+                self.right_act_placeholder: right_acts,
+                self.labels: labels}
+
+        _, loss, summary = self.sess.run([self.train_op, self.loss_op, self.loss_summary], feed_dict=feed_dict)
         self.summary_writer.add_summary(summary, self.sess.run(self.network_input_creator.global_step))
         self.increment_step()
         return loss

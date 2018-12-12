@@ -4,6 +4,7 @@ import numpy as np
 from predict_model import PredictModel
 from random_info_maker import make_random_info_list
 from comparison_maker import make_comparison_list
+from labeler import left_more_action
 from scorer import score_obs
 from my_deep_learning.verify.cross_validation_maker import CrossValidationMaker, Trainer
 from pprint import pprint
@@ -38,7 +39,10 @@ class RLTeacherTrainer(Trainer):
                 print('left reward: {0:.3f}     right reward: {1:.3f} ...'.format(left_predict, right_predict))
 
             predict_left_better = left_predict >= right_predict
-            truth_left_better = test['score'][0] >= test['score'][1]
+            if self.predict_model.use_score:
+                truth_left_better = test['score'][0] >= test['score'][1]
+            else:
+                truth_left_better = left_more_action(test['left'], test['right']) == 0
 
             if truth_left_better == predict_left_better:
                 correct_label_count += 1
@@ -52,11 +56,14 @@ def main():
     vec_obs_size=10
     act_size=1
     stack_num = 1
+    use_score=False
+    compare_func = left_more_action
     now_date=datetime.now()
+
     summary_dir='summary/{0:%Y}_{0:%m%d}/{0:%H}_{0:%M}'.format(now_date)
     info_list = make_random_info_list(1000, vec_obs_size, act_size, stack_num)
-    comparison_list = make_comparison_list(1000, info_list, score_obs)
-    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, summary_dir=summary_dir)
+    comparison_list = make_comparison_list(1000, info_list, use_score, compare_func)
+    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, summary_dir=summary_dir, use_score=use_score)
     trainer = RLTeacherTrainer(1000, predict_model, summary_dir)
     cross_validation = CrossValidationMaker(10, comparison_list, trainer)
 
