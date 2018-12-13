@@ -1,11 +1,11 @@
 import tensorflow as tf
 import numpy as np
 
-from predict_model import PredictModel
-from random_info_maker import make_random_info_list
-from comparison_maker import make_comparison_list
-from labeler import left_more_action
-from scorer import score_obs
+from my_rl_teacher.predict_model import PredictModel
+from my_rl_teacher.random_info_maker import make_random_info_list
+from my_rl_teacher.comparison_maker import make_comparison_list
+from my_rl_teacher.labeler import left_more_action
+from my_rl_teacher.scorer import score_obs
 from my_deep_learning.verify.cross_validation_maker import CrossValidationMaker, Trainer
 from pprint import pprint
 from datetime import datetime
@@ -61,9 +61,13 @@ def main():
     now_date=datetime.now()
 
     summary_dir='summary/{0:%Y}_{0:%m%d}/{0:%H}_{0:%M}'.format(now_date)
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+    summary_writer = tf.summary.FileWriter(summary_dir)
     info_list = make_random_info_list(1000, vec_obs_size, act_size, stack_num)
     comparison_list = make_comparison_list(1000, info_list, use_score, compare_func)
-    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, summary_dir=summary_dir, use_score=use_score)
+    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, use_score=use_score, summary_writer=summary_writer)
+    return
     trainer = RLTeacherTrainer(1000, predict_model, summary_dir)
     cross_validation = CrossValidationMaker(10, comparison_list, trainer)
 
