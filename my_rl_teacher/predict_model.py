@@ -21,7 +21,7 @@ class PredictModel():
         self.use_score = use_score
         self.build_model(scope)
         self.initialize_variable()
-        
+
         self.summary_writer = summary_writer
         self.summary_writer.add_graph(self.sess.graph)
 
@@ -29,7 +29,7 @@ class PredictModel():
         self.sess.run(self.variables_initializer)
 
     def build_input_layer(self, observation, action):
-        with tf.variable_scope('input_layer'): 
+        with tf.variable_scope('input_layer'):
             input_layer = tf.concat([observation, action], axis=2)
         return input_layer
 
@@ -46,9 +46,9 @@ class PredictModel():
 
     def build_reward_network(self, obs_placeholder, act_placeholder, scope):
         with tf.variable_scope(scope):
-            input_layer = self.build_input_layer(obs_placeholder, act_placeholder)        
+            input_layer = self.build_input_layer(obs_placeholder, act_placeholder)
             hidden_layer = self.build_hidden_layer(input_layer, layer_num=3)
-            
+
             with tf.variable_scope('output_layer'):
                     output_layer = tf.layers.dense(hidden_layer, units=1, activation=None)
 
@@ -74,7 +74,7 @@ class PredictModel():
             self.loss_op = tf.reduce_mean(data_loss)
             self.loss_summary = tf.summary.scalar('loss', self.loss_op)
             self.train_op = tf.train.AdamOptimizer().minimize(self.loss_op)
-            
+
 
     def build_model(self, scope):
         self.graph = tf.Graph()
@@ -98,9 +98,9 @@ class PredictModel():
                     with tf.variable_scope('reward_network'):
                         self.left_predict_reward = self.build_reward_network(self.left_obs_placeholder, self.left_act_placeholder, 'left')
                         right_predict_reward = self.build_reward_network(self.right_obs_placeholder, self.right_act_placeholder, 'right')
-                    
+
                     self.build_loss_func(self.left_predict_reward, right_predict_reward)
-                    
+
                     self.merged_summary = tf.summary.merge([self.loss_summary])
                     self.variables_initializer = tf.global_variables_initializer()
 
@@ -110,7 +110,7 @@ class PredictModel():
         self.sess.run(self.network_input_creator.increment_step)
 
     def predict_reward(self, segment_list):
-        """Predict the reward for each step in a given path"""        
+        """Predict the reward for each step in a given path"""
         predict_reward = self.sess.run(self.left_predict_reward, feed_dict={
             self.left_obs_placeholder: np.asarray([segment['observation'] for segment in segment_list]),
             self.left_act_placeholder: np.asarray([segment['action'] for segment in segment_list]),
@@ -118,7 +118,7 @@ class PredictModel():
         return predict_reward[0]
 
     def update_model(self,labeled_comparisons_batch):
-    
+
         left_obs = np.asarray([comp['left']['observation'] for comp in labeled_comparisons_batch])
         left_acts = np.asarray([comp['left']['action'] for comp in labeled_comparisons_batch])
         right_obs = np.asarray([comp['right']['observation'] for comp in labeled_comparisons_batch])
@@ -132,7 +132,7 @@ class PredictModel():
                 self.right_obs_placeholder: right_obs,
                 self.right_act_placeholder: right_acts,
                 self.scores: scores}
-            
+
         else:
             labels = np.asarray([comp['label'] for comp in labeled_comparisons_batch])
             feed_dict={
