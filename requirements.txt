@@ -1,2 +1,4 @@
 nose
 sphinx
+
+-e git + https://github.com/YuMurata/my_rl_teacher.git#egg=my_deep_larning-0.0.1
