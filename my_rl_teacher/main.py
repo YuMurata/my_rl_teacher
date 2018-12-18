@@ -58,12 +58,13 @@ def main():
     stack_num = 1
     use_score=False
     compare_func = left_more_action
-    now_date=datetime.now()
 
+    now_date=datetime.now()
     summary_dir='summary/{0:%Y}_{0:%m%d}/{0:%H}_{0:%M}'.format(now_date)
     if not os.path.exists(summary_dir):
         os.makedirs(summary_dir)
     summary_writer = tf.summary.FileWriter(summary_dir)
+
     info_list = make_random_info_list(1000, vec_obs_size, act_size, stack_num)
     comparison_list = make_comparison_list(1000, info_list, use_score, compare_func)
     predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, use_score=use_score, summary_writer=summary_writer)
