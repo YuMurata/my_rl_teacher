@@ -1,9 +1,9 @@
 import tensorflow as tf
 import numpy as np
 
-from my_rl_teacher.predict_model import PredictModel
+from my_rl_teacher.predict_model_rl import PredictRLRewardModel
 from my_rl_teacher.random_info_maker import make_random_info_list
-from my_rl_teacher.comparison_maker import make_comparison_list
+from my_rl_teacher.comparison_maker import ComparisonMaker
 from my_rl_teacher.labeler import left_more_action
 from my_rl_teacher.scorer import score_obs
 from my_deep_learning.verify.cross_validation_maker import CrossValidationMaker, Trainer
@@ -12,7 +12,7 @@ from datetime import datetime
 import os
 
 class RLTeacherTrainer(Trainer):
-    def __init__(self,train_num:int, predict_model:PredictModel, summary_dir:str):
+    def __init__(self,train_num:int, predict_model:PredictRLRewardModel, summary_dir:str):
         super(RLTeacherTrainer, self).__init__(train_num)
         self.predict_model = predict_model
         self.summary_root_dir = summary_dir
@@ -58,6 +58,7 @@ def main():
     stack_num = 1
     use_score=False
     compare_func = left_more_action
+    batch_size = 100
 
     now_date=datetime.now()
     summary_dir='summary/{0:%Y}_{0:%m%d}/{0:%H}_{0:%M}'.format(now_date)
@@ -66,8 +67,9 @@ def main():
     summary_writer = tf.summary.FileWriter(summary_dir)
 
     info_list = make_random_info_list(1000, vec_obs_size, act_size, stack_num)
-    comparison_list = make_comparison_list(1000, info_list, use_score, compare_func)
-    predict_model = PredictModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, use_score=use_score, summary_writer=summary_writer)
+    comparison_maker = ComparisonMaker(1000, info_list, use_score,batch_size, compare_func)
+    comparison_list = comparison_maker.comparison_list
+    predict_model = PredictRLRewardModel(vec_obs_size, act_size, stack_num, scope='', layer_num=3, use_score=use_score, summary_writer=summary_writer)
     return
     trainer = RLTeacherTrainer(1000, predict_model, summary_dir)
     cross_validation = CrossValidationMaker(10, comparison_list, trainer)
