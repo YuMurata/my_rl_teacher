@@ -10,6 +10,12 @@ class ComparisonMaker:
 
         self.comparison_list = self.make_comparison_list(comparison_num, info_list, func)
 
+    def make_comparison(self, left_info:dict, right_info:dict, func)->dict:
+        raise ComparisonMakerException('make_comparison is not implemented')
+        return dict()
+
+    def choice_left_right_info(self, info_list:list)->dict:
+        assert len(info_list) >= 2, 'info_list size is lesser than 2'
 
         choice_info = np.random.choice(info_list, 2, False)
         return {
