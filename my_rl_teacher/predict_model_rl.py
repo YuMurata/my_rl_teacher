@@ -18,7 +18,6 @@ class PredictRLRewardModel(PredictEvaluationModel):
         super(PredictRLRewardModel, self).__init__(vec_obs_size+act_size, stack_num, scope, layer_num, use_score, summary_writer)
 
     def predict_reward(self, segment_list):
-        """Predict the reward for each step in a given path"""
         predict_reward = self.sess.run(self.left_predict_reward, feed_dict={
             self.left_param_placeholder: np.asarray([np.concatenate(segment['observation'], segment['action']) for segment in segment_list]),
         })
