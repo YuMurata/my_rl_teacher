@@ -89,6 +89,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
-/summary/
+/summaries/
 
 .vscode/*
