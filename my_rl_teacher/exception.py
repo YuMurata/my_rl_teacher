@@ -3,3 +3,6 @@ class MyRLTeacherExpetion(Exception):
 
 class ComparisonMakerException(MyRLTeacherExpetion):
     pass
+
+class PredictModelException(MyRLTeacherExpetion):
+    pass

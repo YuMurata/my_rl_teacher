@@ -3,7 +3,7 @@ import tensorflow.contrib.layers as c_layers
 import numpy as np
 
 from my_deep_learning.model.network_input import NetworkInputCreator
-
+from my_rl_teacher.exception import PredictModelException
 
 class PredictEvaluationModel():
     """Predictor that trains a model to predict how much reward is contained in a trajectory segment"""
@@ -48,19 +48,21 @@ class PredictEvaluationModel():
             predict_reward = tf.reshape(output_layer, (batchsize, segment_length), name='predict_reward')
         return predict_reward
 
+    def override_build_loss(self, reward_logits:tf.Tensor)->tf.Tensor:
+        raise PredictModelException('override_build_loss is not implemented')
+        return tf.constant(0)
+
     def build_loss_func(self, left_predict_reward, right_predict_reward):
         with tf.variable_scope('loss_function'):
             left_segment_predict_reward = tf.reduce_sum(left_predict_reward, axis=1)
             right_segment_predict_reward = tf.reduce_sum(right_predict_reward, axis=1)
             reward_logits = tf.stack([left_segment_predict_reward, right_segment_predict_reward], axis=1)  # (batch_size, 2)
 
-            if self.use_score:
-                self.scores = tf.placeholder(dtype=tf.float32, shape=(None,2), name="comparison_scores")
-                self.labels = tf.nn.softmax(self.scores, name='softmax_scores')
-                data_loss = tf.losses.softmax_cross_entropy(logits=reward_logits, onehot_labels=self.labels)
-            else:
-                self.labels = tf.placeholder(dtype=tf.int32, shape=(None,), name="comparison_labels")
-                data_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=reward_logits, labels=self.labels)
+            assert 2 == reward_logits.shape[1], \
+            '''reward_logits shape is invalid
+                expect: {0}, actual: {1}'''.format((None, 2), reward_logits.shape)
+
+            data_loss = self.override_build_loss(reward_logits)
 
             self.loss_op = tf.reduce_mean(data_loss)
             self.loss_summary = tf.summary.scalar('loss', self.loss_op)
@@ -104,6 +106,10 @@ class PredictEvaluationModel():
         })
         return predict_reward[0]
 
+    def override_add_feed_dict(self, feed_dict:dict, labeled_comparisons_batch:list)->dict:
+        raise PredictModelException('override_add_feed_dict is not implemented')
+        return dict()
+
     def update_model(self,labeled_comparisons_batch:list):
 
         left_param = np.asarray([comp['left']['parameter'] for comp in labeled_comparisons_batch])
@@ -114,13 +120,7 @@ class PredictEvaluationModel():
             self.right_param_placeholder: right_param,
         }
 
-        if self.use_score:
-            scores = np.asarray([comp['score'] for comp in labeled_comparisons_batch])
-            feed_dict[self.scores] = scores
-
-        else:
-            labels = np.asarray([comp['label'] for comp in labeled_comparisons_batch])
-            feed_dict[self.labels] = labels
+        feed_dict = self.override_add_feed_dict(feed_dict, labeled_comparisons_batch)
 
         _, loss, summary = self.sess.run([self.train_op, self.loss_op, self.loss_summary], feed_dict=feed_dict)
         self.summary_writer.add_summary(summary, self.sess.run(self.network_input_creator.global_step))
