@@ -97,14 +97,14 @@ class PredictEvaluationModel():
     def increment_step(self):
         self.sess.run(self.network_input_creator.increment_step)
 
-    def predict_reward(self, segment_list):
+    def predict_reward(self, info_list:list):
         """Predict the reward for each step in a given path"""
         predict_reward = self.sess.run(self.left_predict_reward, feed_dict={
-            self.left_param_placeholder: np.asarray([segment['parameter'] for segment in segment_list]),
+            self.left_param_placeholder: np.asarray([info['parameter'] for info in info_list]),
         })
         return predict_reward[0]
 
-    def update_model(self,labeled_comparisons_batch):
+    def update_model(self,labeled_comparisons_batch:list):
 
         left_param = np.asarray([comp['left']['parameter'] for comp in labeled_comparisons_batch])
         right_param = np.asarray([comp['right']['parameter'] for comp in labeled_comparisons_batch])
