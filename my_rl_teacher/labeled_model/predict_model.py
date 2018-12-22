@@ -5,11 +5,11 @@ import numpy as np
 from my_rl_teacher.predict_model import PredictEvaluationModel
 
 
-class ScoredPredictEvaluationModel(PredictEvaluationModel):
+class LabeledPredictEvaluationModel(PredictEvaluationModel):
     """Predictor that trains a model to predict how much reward is contained in a trajectory segment"""
 
     def __init__(self, param_size:int,stack_num:int, scope:str, layer_num:int, summary_writer:tf.summary.FileWriter):
-        super(ScoredPredictEvaluationModel, self).__init__(param_size, stack_num, scope, layer_num, True, summary_writer)
+        super(LabeledPredictEvaluationModel, self).__init__(param_size, stack_num, scope, layer_num, True, summary_writer)
 
     def override_build_loss(self, reward_logits)->tf.Tensor:
         self.labels = tf.placeholder(dtype=tf.int32, shape=(None,), name="comparison_labels")
