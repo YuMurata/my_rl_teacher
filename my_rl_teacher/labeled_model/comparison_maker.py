@@ -1,4 +1,4 @@
-from comparison_maker import ComparisonMaker
+from my_rl_teacher.comparison_maker import ComparisonMaker
 
 class LabeledComparisonMaker(ComparisonMaker):
     def __init__(self, comparison_num:int, info_list:list, batch_size:int, label_func):
