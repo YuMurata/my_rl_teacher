@@ -1,11 +1,12 @@
 import yaml
 import json
 from pprint import pprint
-from my_rl_teacher.predict_model import PredictEvaluationModel
+from my_rl_teacher.scored_model.predict_model import ScoredPredictEvaluationModel
 import tensorflow as tf
 import numpy as np
-class PartialPredictModel:
-    def __init__(self, structure_file:str, use_score:bool,scope:str, summary_writer:tf.summary.FileWriter):
+
+class ScoredPartialPredictModel:
+    def __init__(self, structure_file:str, scope:str, layer_num:int, summary_writer:tf.summary.FileWriter):
         with open(structure_file,'r') as f:
             self.structure = json.load(f)
         pprint(self.structure)
@@ -14,7 +15,7 @@ class PartialPredictModel:
 
         with tf.variable_scope(scope):
             for partial_name, index_list in self.structure['partial'].items():
-                self.predict_models[partial_name]=PredictEvaluationModel(len(index_list), self.structure['stack_num'], partial_name, 3, use_score, summary_writer)
+                self.predict_models[partial_name]=ScoredPredictEvaluationModel(len(index_list), self.structure['stack_num'], partial_name, layer_num,  summary_writer)
                 import pdb;pdb.set_trace()
 
     def predict_reward(self, segment_list):
@@ -38,6 +39,3 @@ class PartialPredictModel:
             loss_list.append(self.predict_models[partial_name].update_model(partial_comparison_batch))
 
         return np.mean(loss_list)
-
-if __name__ == "__main__":
-    partial_model = PartialPredictModel('tests/test.json',True, tf.summary.FileWriter('summary'))
